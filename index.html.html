@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Calculadora de Préstamos - Sistema Francés</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f5f7f9; color: #333; line-height: 1.6; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; }
+        header { width: 100%; text-align: center; margin-bottom: 30px; padding: 20px; background: #2c3e50; color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        h1 { font-size: 2.2rem; margin-bottom: 10px; }
+        .calculator-section, .results-section { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .calculator-section { flex: 1; min-width: 300px; }
+        .results-section { flex: 2; min-width: 500px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        button { background: #2c3e50; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 10px; width: 100%; transition: background 0.3s; }
+        button:hover { background: #1a252f; }
+        .results-preview { border: 1px solid #ddd; padding: 20px; height: 500px; overflow-y: auto; line-height: 1.8; font-size: 14px; background: #f9f9f9; }
+        .actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-calculate { background: #2980b9; }
+        .btn-calculate:hover { background: #1c6ea4; }
+        .btn-download { background: #27ae60; }
+        .btn-download:hover { background: #219653; }
+        .btn-print { background: #8e44ad; }
+        .btn-print:hover { background: #7d3c98; }
+        .summary-box { background: #e8f4fc; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #2980b9; }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .summary-label { font-weight: 600; }
+        .summary-value { font-weight: bold; color: #2c3e50; }
+        .amortization-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .amortization-table th { background: #2c3e50; color: white; padding: 10px; text-align: center; }
+        .amortization-table td { padding: 8px; text-align: center; border-bottom: 1px solid #ddd; }
+        .amortization-table tr:nth-child(even) { background: #f9f9f9; }
+
+        /* Mejoras específicas para móviles */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .calculator-section, .results-section {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            input, select, button {
+                padding: 14px; /* Más grande para touch */
+                font-size: 16px; /* Previene zoom en iOS */
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .amortization-table {
+                font-size: 12px;
+            }
+            
+            .amortization-table th,
+            .amortization-table td {
+                padding: 6px 4px;
+            }
+            
+            /* Mejor scroll en tablas */
+            .results-preview {
+                overflow-x: auto;
+                height: 400px;
+            }
+            
+            .amortization-table {
+                min-width: 500px;
+            }
+            
+            .summary-item {
+                flex-direction: column;
+                margin-bottom: 10px;
+            }
+            
+            .summary-label, .summary-value {
+                width: 100%;
+            }
+        }
+
+        /* Para tablets */
+        @media (max-width: 768px) and (min-width: 481px) {
+            .container {
+                gap: 15px;
+            }
+            
+            .calculator-section, .results-section {
+                padding: 20px;
+            }
+            
+            .results-preview {
+                height: 450px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .calculator-section, .results-section { width: 100%; }
+        }
+
+        /* Estados de carga */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* Mensajes de error */
+        .error-message {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Calculadora de Préstamos - Sistema Francés</h1>
+            <p>Calcule su préstamo con cuotas fijas y genere un reporte detallado</p>
+        </header>
+        
+        <section class="calculator-section">
+            <h2>Datos del Préstamo</h2>
+            <form id="loan-form">
+                <div class="form-group">
+                    <label for="loanAmount">Monto del Préstamo ($):</label>
+                    <input type="number" id="loanAmount" step="0.01" min="1" required placeholder="Ej: 10000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="interestRate">Tasa de Interés Mensual (%):</label>
+                    <input type="number" id="interestRate" step="0.01" min="0.01" required placeholder="Ej: 2.5">
+                </div>
+                
+                <div class="form-group">
+                    <label for="loanTerm">Plazo del Préstamo (meses):</label>
+                    <input type="number" id="loanTerm" min="1" required placeholder="Ej: 12">
+                </div>
+                
+                <div class="form-group">
+                    <label for="startDate">Fecha de Inicio:</label>
+                    <input type="date" id="startDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="clientName">Nombre del Cliente:</label>
+                    <input type="text" id="clientName" required placeholder="Ingrese su nombre">
+                </div>
+                
+                <button type="button" onclick="calculateLoan()" class="btn-calculate">Calcular Préstamo</button>
+            </form>
+        </section>
+        
+        <section class="results-section">
+            <h2>Resultados del Cálculo</h2>
+            <div id="resultsPreview" class="results-preview">
+                <p>Los resultados del cálculo aparecerán aquí después de completar el formulario y hacer clic en "Calcular Préstamo".</p>
+            </div>
+            
+            <div class="actions">
+                <button class="btn-download" onclick="downloadReport()" disabled id="downloadBtn">Descargar Reporte (Word)</button>
+                <button class="btn-print" onclick="printReport()" disabled id="printBtn">Imprimir Reporte</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Función para establecer fecha por defecto como hoy
+        function setDefaultDate() {
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('startDate').value = formattedDate;
+        }
+
+        // Función para mostrar mensaje de error
+        function showError(message) {
+            // Remover error anterior si existe
+            const existingError = document.querySelector('.error-message');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            
+            // Insertar después del header
+            const header = document.querySelector('header');
+            header.parentNode.insertBefore(errorDiv, header.nextSibling);
+            
+            // Auto-remover después de 5 segundos
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        // Función para calcular préstamo sistema francés
+        function calculateLoan() {
+            // Mostrar estado de carga
+            document.body.classList.add('loading');
+            
+            try {
+                // Obtener valores del formulario
+                const loanAmount = parseFloat(document.getElementById('loanAmount').value);
+                const monthlyInterestRate = parseFloat(document.getElementById('interestRate').value);
+                const loanTerm = parseInt(document.getElementById('loanTerm').value);
+                const startDate = document.getElementById('startDate').value;
+                const clientName = document.getElementById('clientName').value.trim();
+
+                // Validaciones básicas
+                if (!loanAmount || !monthlyInterestRate || !loanTerm || !startDate || !clientName) {
+                    showError('Por favor, complete todos los campos.');
+                    return;
+                }
+
+                // Validaciones numéricas más estrictas
+                if (isNaN(loanAmount) || isNaN(monthlyInterestRate) || isNaN(loanTerm)) {
+                    showError('Por favor, ingrese valores numéricos válidos.');
+                    return;
+                }
+
+                if (loanAmount <= 0 || monthlyInterestRate <= 0 || loanTerm <= 0) {
+                    showError('Todos los valores numéricos deben ser mayores a cero.');
+                    return;
+                }
+
+                // Cálculos
+                const monthlyInterest = monthlyInterestRate / 100;
+                
+                // Validar tasa de interés para evitar errores matemáticos
+                if (monthlyInterest >= 1) {
+                    showError('La tasa de interés mensual parece demasiado alta. Verifique el valor.');
+                    return;
+                }
+
+                const monthlyPayment = loanAmount * (monthlyInterest * Math.pow(1 + monthlyInterest, loanTerm)) / (Math.pow(1 + monthlyInterest, loanTerm) - 1);
+                
+                // Validar cálculo
+                if (!isFinite(monthlyPayment)) {
+                    showError('Error en el cálculo. Verifique los valores ingresados.');
+                    return;
+                }
+
+                const totalPayment = monthlyPayment * loanTerm;
+                const totalInterest = totalPayment - loanAmount;
+
+                // Generar tabla de amortización
+                let balance = loanAmount;
+                let amortizationTable = '';
+                let amortizationData = [];
+
+                for (let month = 1; month <= loanTerm; month++) {
+                    const interestPayment = balance * monthlyInterest;
+                    const principalPayment = monthlyPayment - interestPayment;
+                    balance -= principalPayment;
+
+                    // Evitar saldos negativos por errores de redondeo
+                    const finalBalance = balance > 0 ? Math.max(balance, 0) : 0;
+
+                    amortizationData.push({
+                        month: month,
+                        payment: monthlyPayment,
+                        principal: principalPayment,
+                        interest: interestPayment,
+                        balance: finalBalance
+                    });
+                }
+
+                // Formatear fechas
+                const startDateObj = new Date(startDate);
+                const startDateFormatted = startDateObj.toLocaleDateString('es-ES');
+                const endDate = new Date(startDateObj);
+                endDate.setMonth(endDate.getMonth() + loanTerm);
+                const endDateFormatted = endDate.toLocaleDateString('es-ES');
+
+                // Mostrar resultados
+                const resultsHTML = `
+                    <div class="summary-box">
+                        <h3>Resumen del Préstamo</h3>
+                        <div class="summary-item">
+                            <span class="summary-label">Cliente:</span>
+                            <span class="summary-value">${clientName}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Monto del préstamo:</span>
+                            <span class="summary-value">$${loanAmount.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Tasa de interés mensual:</span>
+                            <span class="summary-value">${monthlyInterestRate}%</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Plazo:</span>
+                            <span class="summary-value">${loanTerm} meses</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Cuota mensual:</span>
+                            <span class="summary-value">$${monthlyPayment.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Pago total:</span>
+                            <span class="summary-value">$${totalPayment.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Intereses totales:</span>
+                            <span class="summary-value">$${totalInterest.toFixed(2)}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Fecha de inicio:</span>
+                            <span class="summary-value">${startDateFormatted}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Fecha de finalización:</span>
+                            <span class="summary-value">${endDateFormatted}</span>
+                        </div>
+                    </div>
+
+                    <h3>Tabla de Amortización (Primeros 12 meses)</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="amortization-table">
+                            <thead>
+                                <tr>
+                                    <th>Mes</th>
+                                    <th>Cuota</th>
+                                    <th>Capital</th>
+                                    <th>Interés</th>
+                                    <th>Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${amortizationData.slice(0, 12).map(row => `
+                                    <tr>
+                                        <td>${row.month}</td>
+                                        <td>$${row.payment.toFixed(2)}</td>
+                                        <td>$${row.principal.toFixed(2)}</td>
+                                        <td>$${row.interest.toFixed(2)}</td>
+                                        <td>$${row.balance.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    ${loanTerm > 12 ? `<p><em>Mostrando primeros 12 meses de ${loanTerm} meses totales</em></p>` : ''}
+                `;
+
+                document.getElementById('resultsPreview').innerHTML = resultsHTML;
+                document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('printBtn').disabled = false;
+
+                // Guardar datos para el reporte
+                window.loanData = {
+                    loanAmount,
+                    monthlyInterestRate,
+                    loanTerm,
+                    startDate: startDateFormatted,
+                    endDate: endDateFormatted,
+                    clientName,
+                    monthlyPayment,
+                    totalPayment,
+                    totalInterest,
+                    amortizationData
+                };
+
+            } catch (error) {
+                console.error('Error en el cálculo:', error);
+                showError('Ocurrió un error inesperado. Por favor, verifique los datos e intente nuevamente.');
+            } finally {
+                // Remover estado de carga
+                document.body.classList.remove('loading');
+            }
+        }
+
+        // Función para descargar reporte en Word
+        function downloadReport() {
+            if (!window.loanData) return;
+
+            const { loanAmount, monthlyInterestRate, loanTerm, startDate, endDate, 
+                   clientName, monthlyPayment, totalPayment, 
+                   totalInterest, amortizationData } = window.loanData;
+
+            const reportHTML = `
+                <h2>Reporte de Préstamo - Sistema Francés</h2>
+                
+                <h3>Datos del Cliente</h3>
+                <p><strong>Nombre:</strong> ${clientName}</p>
+                
+                <h3>Resumen del Préstamo</h3>
+                <table border="1" cellpadding="5" cellspacing="0" width="100%">
+                    <tr><td width="50%"><strong>Monto del préstamo:</strong></td><td>$${loanAmount.toFixed(2)}</td></tr>
+                    <tr><td><strong>Tasa de interés mensual:</strong></td><td>${monthlyInterestRate}%</td></tr>
+                    <tr><td><strong>Plazo:</strong></td><td>${loanTerm} meses</td></tr>
+                    <tr><td><strong>Cuota mensual:</strong></td><td>$${monthlyPayment.toFixed(2)}</td></tr>
+                    <tr><td><strong>Pago total:</strong></td><td>$${totalPayment.toFixed(2)}</td></tr>
+                    <tr><td><strong>Intereses totales:</strong></td><td>$${totalInterest.toFixed(2)}</td></tr>
+                    <tr><td><strong>Fecha de inicio:</strong></td><td>${startDate}</td></tr>
+                    <tr><td><strong>Fecha de finalización:</strong></td><td>${endDate}</td></tr>
+                </table>
+
+                <h3>Tabla de Amortización</h3>
+                <table border="1" cellpadding="5" cellspacing="0" width="100%">
+                    <tr>
+                        <th bgcolor="#2c3e50" style="color: white; padding: 8px;">Mes</th>
+                        <th bgcolor="#2c3e50" style="color: white; padding: 8px;">Cuota</th>
+                        <th bgcolor="#2c3e50" style="color: white; padding: 8px;">Capital</th>
+                        <th bgcolor="#2c3e50" style="color: white; padding: 8px;">Interés</th>
+                        <th bgcolor="#2c3e50" style="color: white; padding: 8px;">Saldo</th>
+                    </tr>
+                    ${amortizationData.map(row => `
+                        <tr>
+                            <td style="text-align: center;">${row.month}</td>
+                            <td style="text-align: right;">$${row.payment.toFixed(2)}</td>
+                            <td style="text-align: right;">$${row.principal.toFixed(2)}</td>
+                            <td style="text-align: right;">$${row.interest.toFixed(2)}</td>
+                            <td style="text-align: right;">$${row.balance.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+
+                <p style="margin-top: 20px; font-style: italic;">
+                    Reporte generado el ${new Date().toLocaleDateString('es-ES')} - Calculadora de Préstamos Sistema Francés
+                </p>
+            `;
+
+            const sourceHTML = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                      xmlns:w='urn:schemas-microsoft-com:office:word' 
+                      xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>Reporte de Préstamo - ${clientName}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; font-size: 12pt; margin: 1cm; }
+                        h2 { color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
+                        h3 { color: #2c3e50; margin-top: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                        th { background-color: #2c3e50; color: white; padding: 8px; }
+                        td { padding: 6px; border: 1px solid #ddd; }
+                    </style>
+                </head>
+                <body>
+                    ${reportHTML}
+                </body>
+                </html>
+            `;
+
+            const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+            const fileDownload = document.createElement("a");
+            document.body.appendChild(fileDownload);
+            fileDownload.href = source;
+            fileDownload.download = `reporte_prestamo_${clientName.replace(/\s+/g, '_')}.doc`;
+            fileDownload.click();
+            document.body.removeChild(fileDownload);
+        }
+
+        // Función para imprimir reporte
+        function printReport() {
+            const printContent = document.getElementById('resultsPreview').innerHTML;
+            const originalContent = document.body.innerHTML;
+            
+            document.body.innerHTML = `
+                <div style="padding: 20px; font-family: Arial, sans-serif;">
+                    <h1 style="text-align: center; color: #2c3e50;">Reporte de Préstamo</h1>
+                    ${printContent}
+                    <div style="margin-top: 30px; text-align: center; font-style: italic;">
+                        Generado el ${new Date().toLocaleDateString('es-ES')}
+                    </div>
+                </div>
+            `;
+            window.print();
+            document.body.innerHTML = originalContent;
+            
+            // Volver a calcular para restaurar la vista
+            calculateLoan();
+        }
+
+        // Inicializar cuando la página cargue
+        window.addEventListener('DOMContentLoaded', function() {
+            setDefaultDate();
+            
+            // Agregar soporte para Enter key en formularios móviles
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        calculateLoan();
+                    }
+                });
+            });
+            
+            // Mejorar la experiencia táctil
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('touchstart', function() {
+                    this.style.transform = 'scale(0.98)';
+                });
+                button.addEventListener('touchend', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
